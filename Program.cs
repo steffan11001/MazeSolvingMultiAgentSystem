@@ -1,7 +1,7 @@
 ﻿using ActressMas;
 using System.Threading;
 
-namespace Reactive
+namespace maze
 {
     public class Program
     {
@@ -9,7 +9,7 @@ namespace Reactive
         {
             EnvironmentMas env = new EnvironmentMas(0, 100);
 
-            var planetAgent = new Maze();
+            var planetAgent = new MazeAgent();
             env.Add(planetAgent, "planet");
 
             for (int i = 1; i <= 2; i++)
