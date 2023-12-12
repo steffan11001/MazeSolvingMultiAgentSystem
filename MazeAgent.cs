@@ -7,16 +7,13 @@ using System.Windows.Forms;
 
 namespace maze
 {
-    class MazeAgent : Agent
+    public class MazeAgent : Agent
     {
-        private string _basePosition;
         private MazeForm _formGui;
         public Dictionary<string, string> ExplorerPositions { get; set; }
         public MazeAgent()
         {
             ExplorerPositions = new Dictionary<string, string>();
-            _basePosition = Utils.Str(Utils.Size / 2, Utils.Size / 2);
-
             Thread t = new Thread(new ThreadStart(GUIThread));
             t.Start();
         }
@@ -32,9 +29,6 @@ namespace maze
         {
             Console.WriteLine("Starting " + Name);
 
-            int offset = 2;
-
-            List<string> resPos = new List<string>();
             string compPos = Utils.Str(Utils.Size / 2, Utils.Size / 2);
         }
 
@@ -44,9 +38,40 @@ namespace maze
 
             string action; string parameters;
             Utils.ParseMessage(message.Content, out action, out parameters);
+            switch (action)
+            {
+                case "position":
+                    HandlePosition(message.Sender, parameters);
+                    break;
+                case "change":
+                    HandleChange(message.Sender, parameters);
+                    break;
+                default:
+                    break;
+            }
+            _formGui.UpdateMazeGUI();
+        }
+        private void HandlePosition(string sender, string position)
+        {
+            ExplorerPositions.Add(sender, position);
+            Send(sender, "move");
+        }
+        private void HandleChange(string sender, string position)
+        {
+            ExplorerPositions[sender] = position;
 
-            
-            _formGui.UpdatePlanetGUI();
+            foreach (string k in ExplorerPositions.Keys)
+            {
+                if (k == sender)
+                    continue;
+                if (ExplorerPositions[k] == position)
+                {
+                    Send(sender, "block");
+                    return;
+                }
+            }
+
+            Send(sender, "move");
         }
 
     }

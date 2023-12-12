@@ -9,8 +9,8 @@ namespace maze
         {
             EnvironmentMas env = new EnvironmentMas(0, 100);
 
-            var planetAgent = new MazeAgent();
-            env.Add(planetAgent, "planet");
+            var mazeAgent = new MazeAgent();
+            env.Add(mazeAgent, "maze");
 
             for (int i = 1; i <= 2; i++)
             {

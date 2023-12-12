@@ -18,7 +18,7 @@ namespace maze
         {
             InitializeComponent();
         }
-
+       
         public void SetOwner(MazeAgent a)
         {
             _ownerAgent = a;
@@ -29,7 +29,7 @@ namespace maze
             DrawPlanet();
         }
 
-        public void UpdatePlanetGUI()
+        public void UpdateMazeGUI()
         {
             DrawPlanet();
         }
