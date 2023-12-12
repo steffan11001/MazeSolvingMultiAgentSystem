@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -14,8 +15,10 @@ namespace maze
     {
         private MazeAgent _ownerAgent;
         private Bitmap _doubleBufferImage;
+        private List<string> cells;
         public MazeForm()
         {
+            cells = readMazeCells("E:\\Sisteme_multiagent\\proiect\\MazeSolvingMultiAgentSystem\\maze.txt");
             InitializeComponent();
         }
        
@@ -42,6 +45,7 @@ namespace maze
 
         private void DrawPlanet()
         {
+
             int w = pictureBox.Width;
             int h = pictureBox.Height;
 
@@ -84,5 +88,29 @@ namespace maze
             pbg.DrawImage(_doubleBufferImage, 0, 0);
         }
 
+        private List<string> readMazeCells(string filePath)
+        {
+            List<string> result = new List<string>();
+            if (File.Exists(filePath))
+            {
+                // Open the file with a StreamReader
+                using (StreamReader reader = new StreamReader(filePath))
+                {
+                    // Read each line until the end of the file
+                    while (!reader.EndOfStream)
+                    {
+                        string line = reader.ReadLine();
+                        result.Add(line);
+                        Console.WriteLine(line);
+                        // You can store or process each string as needed
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("File does not exist: " + filePath);
+            }
+            return result;
+        }
     }
 }
