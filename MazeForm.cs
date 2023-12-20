@@ -16,9 +16,9 @@ namespace maze
         private MazeAgent _ownerAgent;
         private Bitmap _doubleBufferImage;
         private List<string> cells;
-        public MazeForm()
+        public MazeForm(List<string> maze)
         {
-            cells = readMazeCells("D:\\ProiectSM\\MazeSolvingMultiAgentSystem-stefan\\maze.txt");
+            cells = maze;
             Console.WriteLine(cells);
             InitializeComponent();
         }
@@ -68,17 +68,15 @@ namespace maze
                 for (int j = 0; j < Utils.Size; j++) {
                     index = i * Utils.Size + j;
                     if (cells[index][0] == '0')
-                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + i * cellSize, 20 + (j+1) * cellSize, 20 + i * cellSize);
+                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + i * cellSize, 20 + j * cellSize, 20 + (i+1) * cellSize);
                     if (cells[index][1] == '0')
-                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + (i+1) * cellSize, 20 + (j + 1) * cellSize, 20 + (i+1) * cellSize);
+                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + (j+1) * cellSize, 20 + i * cellSize, 20 + (j+1) * cellSize, 20 + (i+1) * cellSize);
                     if (cells[index][2] == '0')
-                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + i * cellSize, 20 + j * cellSize, 20 + (i + 1) * cellSize);
+                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + i * cellSize, 20 + (j+1) * cellSize, 20 + i * cellSize);
                     if (cells[index][3] == '0')
-                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + (j+1) * cellSize, 20 + i * cellSize, 20 + (j+1) * cellSize, 20 + (i + 1) * cellSize);
+                        g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + (i+1) * cellSize, 20 + (j+1) * cellSize, 20 + (i+1) * cellSize);
 
                 }
-
-            g.FillEllipse(Brushes.Red, 20 + Utils.Size / 2 * cellSize + 4, 20 + Utils.Size / 2 * cellSize + 4, cellSize - 8, cellSize - 8); // the base
 
             if (_ownerAgent != null)
             {
@@ -98,29 +96,5 @@ namespace maze
             pbg.DrawImage(_doubleBufferImage, 0, 0);
         }
 
-        private List<string> readMazeCells(string filePath)
-        {
-            List<string> result = new List<string>();
-            if (File.Exists(filePath))
-            {
-                // Open the file with a StreamReader
-                using (StreamReader reader = new StreamReader(filePath))
-                {
-                    // Read each line until the end of the file
-                    while (!reader.EndOfStream)
-                    {
-                        string line = reader.ReadLine();
-                        result.Add(line);
-                        Console.WriteLine(line);
-                        // You can store or process each string as needed
-                    }
-                }
-            }
-            else
-            {
-                Console.WriteLine("File does not exist: " + filePath);
-            }
-            return result;
-        }
     }
 }
