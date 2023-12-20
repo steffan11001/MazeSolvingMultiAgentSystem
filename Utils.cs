@@ -5,10 +5,10 @@ namespace maze
 {
     public class Utils
     {
-        public static int Size = 5;
+        public static int Size = 20;
         public static int NoExplorers = 5;
 
-        public static int Delay = 200;
+        public static int Delay = 100;
         public static Random RandNoGen = new Random();
 
         public static void ParseMessage(string content, out string action, out List<string> parameters)
@@ -46,6 +46,10 @@ namespace maze
         public static string Str(object p1, object p2, object p3)
         {
             return string.Format("{0} {1} {2}", p1, p2, p3);
+        }
+        public static string Str(object p1, object weight, object left, object right, object top, object bottom)
+        {
+            return string.Format("{0} {1} {2} {3} {4} {5}", p1, weight, left, right, top, bottom);
         }
     }
 }
