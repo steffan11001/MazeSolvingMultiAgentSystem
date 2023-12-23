@@ -80,6 +80,18 @@ namespace maze
 
             if (_ownerAgent != null)
             {
+                for (int i = 0; i < _ownerAgent.Weight.Count; i++)
+                {
+
+                    int y = i / Utils.Size;
+                    int x = i - y * Utils.Size;
+           
+                    if(_ownerAgent.Weight[i] == 0)
+                        g.FillRectangle(new SolidBrush(Color.FromArgb(255 , Color.Red)), 20 + x * cellSize + 6, 20 + y * cellSize + 6, cellSize - 12, cellSize - 12);
+                    else
+                        g.FillRectangle(new SolidBrush(Color.FromArgb((255 - (int)(_ownerAgent.Weight[i] * 255)), Color.Green)), 20 + x * cellSize + 6, 20 + y * cellSize + 6, cellSize - 12, cellSize - 12);
+                }
+
                 foreach (string v in _ownerAgent.ExplorerPositions.Values)
                 {
                     string[] t = v.Split();
@@ -89,7 +101,6 @@ namespace maze
                     g.FillEllipse(Brushes.Blue, 20 + x * cellSize + 6, 20 + y * cellSize + 6, cellSize - 12, cellSize - 12);
                 }
 
-               
             }
 
             Graphics pbg = pictureBox.CreateGraphics();

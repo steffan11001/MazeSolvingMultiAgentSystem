@@ -13,11 +13,21 @@ namespace maze
         private MazeForm _formGui;
         public Dictionary<string, string> ExplorerPositions { get; set; }
         private List<string> cells;
+        private float DecreaseRate = 0.05f;
+        public Dictionary<int,float> Weight;
         public MazeAgent()
         {
-            cells = readMazeCells("D:\\SistemeMultiagent\\MazeSolvingMultiAgentSystem\\maze2.txt");
+            cells = readMazeCells("D:\\SistemeMultiagent\\MazeSolvingMultiAgentSystem\\maze3.txt.txt");
             ExplorerPositions = new Dictionary<string, string>();
-            
+            Weight = new Dictionary<int, float>();
+            int index = 0;
+            for(int i=0; i< Utils.Size; i++)
+                for(int j=0; j<Utils.Size; j++)
+                {
+                    index = i * Utils.Size + j;
+                    Weight[index] = 1.0f;
+                }
+
             Thread t = new Thread(new ThreadStart(GUIThread));
             t.Start();
         }
@@ -50,10 +60,48 @@ namespace maze
                 case "change":
                     HandleChange(message.Sender, parameters);
                     break;
+                case "update_weight":
+                    UpdateWeight(message.Sender, parameters);
+                    break;
                 default:
                     break;
             }
             _formGui.UpdateMazeGUI();
+        }
+
+        private bool blockPoint(string cell)
+        {
+            bool flag = false;
+            int count = 0;
+
+            foreach(char c in cell)
+            {
+                if (c == '0')
+                    count = count + 1;
+            }
+
+            if (count == 3)
+                flag = true;
+
+            return flag;
+        }
+        private void UpdateWeight(string sender, string parameters)
+        {
+            string[] param = parameters.Split(' ');
+            int x = Convert.ToInt32(param[0]);
+            int y = Convert.ToInt32(param[1]);
+            string state = param[2];
+
+            int cellPos = y * Utils.Size + x;
+
+            if (state == "block")
+                Weight[cellPos] = 0;
+            else
+                if(blockPoint(cells[cellPos]))
+                    Weight[cellPos] = Weight[cellPos] - 2*DecreaseRate;
+                else
+                    Weight[cellPos] = Weight[cellPos] - DecreaseRate;
+
         }
         private void HandleSpawn(string sender)
         {
@@ -71,7 +119,6 @@ namespace maze
                     int posY = Convert.ToInt32(positions[1]);
                     if (x == posX && y == posY)
                         flag = true;
-                    Console.WriteLine(posX + " " + posY);
                 }
 
                 if (!flag)
@@ -88,9 +135,17 @@ namespace maze
             int x = Convert.ToInt32(parameters[0]);
             int y = Convert.ToInt32(parameters[1]);
             int cellsPos = y * Utils.Size + x;
-            Console.WriteLine(cellsPos);
+            float left=0, right=0, top=0, bottom=0;
+            if (cellsPos % Utils.Size != 0)
+                left = Weight[cellsPos-1];
+            if (cellsPos % Utils.Size != Utils.Size - 1)
+                right = Weight[cellsPos + 1];
+            if (cellsPos >= Utils.Size)
+                top = Weight[cellsPos - Utils.Size];
+            if (cellsPos < Utils.Size * (Utils.Size - 1))
+                bottom = Weight[cellsPos + Utils.Size];
 
-            ExplorerPositions[sender] = position;
+            string weights = string.Format("{0} {1} {2} {3}", left, right, top, bottom);
 
             foreach (string k in ExplorerPositions.Keys)
             {
@@ -98,18 +153,14 @@ namespace maze
                     continue;
                 if (ExplorerPositions[k] == position)
                 {
-                    Send(sender, "block");
+                    Send(k, Utils.Str("back", Weight[cellsPos]));
                     return;
                 }
             }
 
-            for (int i=0; i<cells.Count; i++)
-            {
-                Console.WriteLine(i+" "+cells[i]);
-            }
+            ExplorerPositions[sender] = position;
 
-            Console.WriteLine(cells[cellsPos]);
-            Send(sender, Utils.Str("move", 1, cells[cellsPos][0], cells[cellsPos][1], cells[cellsPos][2], cells[cellsPos][3]));
+            Send(sender, Utils.StrForExplorer("move", cells[cellsPos], weights));
         }
 
         private List<string> readMazeCells(string filePath)
@@ -125,7 +176,6 @@ namespace maze
                     {
                         string line = reader.ReadLine();
                         result.Add(line);
-                        Console.WriteLine(line);
                         // You can store or process each string as needed
                     }
                 }
