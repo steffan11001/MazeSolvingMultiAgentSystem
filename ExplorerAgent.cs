@@ -14,11 +14,24 @@ namespace maze
         private double _previous_weight = 0;
         private int step = 0;
         private Dictionary<int, string> path;
-        
+        private byte LastDirection;
+        private byte[] OppositeDirection = { 1, 0, 3, 2};
+        private double[] arrayWeight = new double[4];
+        private int[] arrayWalls = new int[4];
+        private bool[,] maze;
+
         public override void Setup()
         {
             Console.WriteLine("setup Explorer " + Name);
             Console.WriteLine("Starting " + Name);
+
+            path = new Dictionary<int, string>();
+
+            maze = new bool[Utils.Size, Utils.Size];
+
+            for (int i = 0; i < Utils.Size; i++)
+                for (int j = 0; j < Utils.Size; j++)
+                    maze[i,j] = false;
 
             Send("maze", Utils.Str("spawn", 0, 0));
         }
@@ -31,7 +44,7 @@ namespace maze
             Utils.ParseMessage(message.Content, out action, out parameters);
             if (action == "back")
             {
-                GoBack(message.Sender, parameters);
+                GoBack();
             }
             if (action == "move")
             {
@@ -41,22 +54,25 @@ namespace maze
             {
                 _x = Convert.ToInt32(parameters[0]);
                 _y = Convert.ToInt32(parameters[1]);
-                MoveRandomly();
-                Send("maze", Utils.Str("change", _x, _y));
             }
 
         }
-        private void GoBack(string sender, List<string> parameters)
+        private void GoBack()
         {
-            double weight = Convert.ToDouble(parameters[0]);
-            Console.WriteLine(weight + " " + _my_weight);
-            if (weight >= _my_weight)
+            if (step == 0 || step == 1)
             {
-                Send(sender, Utils.Str("back", _my_weight));
                 Send("maze", Utils.Str("change", _x, _y));
             }
             else
-                Send("maze", Utils.Str("change", _previous_x, _previous_y));
+            {
+                string[] position = path[step - 2].Split(' ');
+                step = step - 1;
+                _previous_x = _x;
+                _previous_y = _y;
+                _x = Convert.ToInt32(position[0]);
+                _y = Convert.ToInt32(position[1]);
+                Send("maze", Utils.Str("change", _x, _y));
+            }
         }
 
         public void Spawn()
@@ -65,50 +81,106 @@ namespace maze
             _y = rand.Next(0, Utils.Size);
             Send("maze", Utils.Str("position", _x, _y));
         }
-        private void MoveRandomly()
+        private List<string> getNeightbours()
         {
-            int d = Utils.RandNoGen.Next(4);
-            switch (d)
+            List<string> Neighbours=new List<string>();
+            for (int i = 0; i < 4; i++)
             {
-                case 0: if (_x > 0) _x--; break;
-                case 1: if (_x < Utils.Size - 1) _x++; break;
-                case 2: if (_y > 0) _y--; break;
-                case 3: if (_y < Utils.Size - 1) _y++; break;
+                Neighbours.Add("");
             }
+
+            if (arrayWalls[0] == 1)
+                Neighbours[0] = Convert.ToString((_x - 1) + " " + _y);
+            if (arrayWalls[1] == 1)
+                Neighbours[1] = Convert.ToString((_x + 1) + " " + _y);
+            if (arrayWalls[2] == 1)
+                Neighbours[2] = Convert.ToString(_x + " " + (_y-1));
+            if (arrayWalls[3] == 1)
+                Neighbours[3] = Convert.ToString(_x + " " + (_y+1));
+
+            return Neighbours;
         }
-        private int max(double[] weights, int[] walls)
+        private bool visitedAllNeighbours(List<string> Neighbours)
+        {
+            bool flag = true;
+            int x, y;
+
+            for(int i = 0; i < Neighbours.Count; i++)
+            {
+                if (Neighbours[i] != "")
+                {
+                    string[] position = Neighbours[i].Split(' ');
+                    x = Convert.ToInt32(position[0]);
+                    y = Convert.ToInt32(position[1]);
+                    if (maze[y, x] == false)
+                        flag = false;
+                }
+            }
+
+            return flag;
+        }
+
+        private List<string> getUnvisitedNeighbours()
+        {
+            List<string> Neighbours = new List<string>();
+            for (int i = 0; i < 4; i++){
+                Neighbours.Add("");
+            }
+
+            if (arrayWalls[0] == 1 && maze[_y, _x - 1] == false)
+                Neighbours[0] = Convert.ToString((_x - 1) + " " + _y);
+            if (arrayWalls[1] == 1 && maze[_y, _x + 1] == false)
+                Neighbours[1] = Convert.ToString((_x + 1) + " " + _y);
+            if (arrayWalls[2] == 1 && maze[_y - 1, _x] == false)
+                Neighbours[2] = Convert.ToString(_x + " " + (_y - 1));
+            if (arrayWalls[3] == 1 && maze[_y + 1, _x] == false)
+                Neighbours[3] = Convert.ToString(_x + " " + (_y + 1));
+
+            return Neighbours;
+        }
+        private int max(List<string> Neighbours)
         {
             int index = 0;
             double max = 0;
-            for (int i = 0; i < weights.Length; i++)
+
+            if (getNeighboursCount(Neighbours) == 1)
             {
-                if (max < weights[i] && walls[i] == 1)
+                for (int i = 0; i < Neighbours.Count; i++)
+                    if (Neighbours[i] != "")
+                        index = i;
+            }
+            else
+            {
+                for (int i = 0; i < Neighbours.Count; i++)
                 {
-                    max = weights[i];
-                    index = i;
+                    if (max < arrayWeight[i] && arrayWalls[i] == 1 && Neighbours[i] != "" && i != OppositeDirection[LastDirection])
+                    {
+                        max = arrayWeight[i];
+                        index = i;
+                    }
                 }
             }
 
             return index;
         }
-
-        private bool blockPoint(double[] weightArray,int[] arrayWalls)
+        private int getNeighboursCount(List<string> Neighbours)
         {
-            bool flag = false;
             int count = 0;
-
-            for(int i=0; i < weightArray.Length; i++)
-            {
-                if (arrayWalls[i] == 0 || weightArray[i] == 0)
+            for( int i=0; i<Neighbours.Count; i++)
+                if (Neighbours[i] != "")
                     count = count + 1;
-            }
-            if (count == 3)
-                flag = true;
 
-            return flag;
+            return count;
         }
         private void Move(List<String> parameters)
         {
+            if (step == path.Count)
+                path.Add(step, Convert.ToString(_x + " " + _y));
+            else
+                path[step] = Convert.ToString(_x + " " + _y);
+
+            step++;
+
             _previous_x = _x;
             _previous_y = _y;
             _previous_weight = _my_weight;
@@ -120,41 +192,42 @@ namespace maze
             double rightWeight = Convert.ToDouble(parameters[5]);
             double topWeight = Convert.ToDouble(parameters[6]);
             double bottomWeight = Convert.ToDouble(parameters[7]);
+            int index;
 
             if (_state == "ok")
             {
 
-                double[] arrayWeight = { leftWeight, rightWeight, topWeight, bottomWeight };
-                int[] arrayWalls = { left, right, top, bottom };
-                int index = max(arrayWeight, arrayWalls);
-                bool blockState = blockPoint(arrayWeight, arrayWalls);
-
-                switch (index)
+                arrayWeight[0] = leftWeight; arrayWeight[1] = rightWeight; arrayWeight[2] = topWeight; arrayWeight[3] = bottomWeight;
+                arrayWalls[0] = left; arrayWalls[1] = right; arrayWalls[2] = top; arrayWalls[3] = bottom;
+               
+                List<string> Neighbours = getNeightbours();
+                List<string> UnvisitedNeighbours;
+               
+                if (!visitedAllNeighbours(Neighbours))
                 {
-                    case 0: if (_x > 0 && left == 1) _x--; _my_weight = leftWeight; break;
-                    case 1: if (_x < Utils.Size - 1 && right == 1) _x++; _my_weight = rightWeight; break;
-                    case 2: if (_y > 0 && top == 1) _y--; _my_weight = topWeight; break;
-                    case 3: if (_y < Utils.Size - 1 && bottom == 1) _y++; _my_weight = bottomWeight; break;
-                }
-                Console.WriteLine("{0} {1}", _x, _y);
-
-                if (blockState)
-                {
-                    Send("maze", Utils.Str("update_weight", _previous_x, _previous_y, "block"));
-                    Send("maze", Utils.Str("change", _x, _y));
+                    UnvisitedNeighbours = getUnvisitedNeighbours();
+                    index = max(UnvisitedNeighbours);
                 }
                 else
                 {
-                    Send("maze", Utils.Str("update_weight", _previous_x, _previous_y, "ok"));
-                    Send("maze", Utils.Str("change", _x, _y));
+                    index = max(Neighbours);
                 }
-            }
-            if(_state == "back")
-            {
-            
+
+                switch (index)
+                {
+                    case 0: if (_x > 0 && left == 1) _x--; _my_weight = leftWeight; LastDirection = 0; break;
+                    case 1: if (_x < Utils.Size - 1 && right == 1) _x++; _my_weight = rightWeight; LastDirection = 1; break;
+                    case 2: if (_y > 0 && top == 1) _y--; _my_weight = topWeight; LastDirection = 2; break;
+                    case 3: if (_y < Utils.Size - 1 && bottom == 1) _y++; _my_weight = bottomWeight; LastDirection = 3; break;
+                }
+
+                Console.WriteLine("{0} {1}", _x, _y);
+
+                Send("maze", Utils.Str("update_weight", _previous_x, _previous_y));
+                Send("maze", Utils.Str("change", _x, _y));
+                maze[_y, _x] = true;
             }
         }
-
 
     }
 }

@@ -5,7 +5,7 @@ namespace maze
 {
     public class Utils
     {
-        public static int Size = 7;
+        public static int Size;
         public static int NoExplorers = 5;
 
         public static int Delay = 100;
@@ -58,6 +58,10 @@ namespace maze
         public static string Str(object p1, object p2, object p3, object p4)
         {
             return string.Format("{0} {1} {2} {3}", p1, p2, p3, p4);
+        }
+        public static string Str(object p1)
+        {
+            return string.Format("{0}", p1);
         }
 
     }

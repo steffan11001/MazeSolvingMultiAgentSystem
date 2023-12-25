@@ -49,6 +49,8 @@ namespace maze
 
             int w = pictureBox.Width;
             int h = pictureBox.Height;
+            int ExitX = _ownerAgent.ExitPositionX;
+            int ExitY = _ownerAgent.ExitPositionY;
 
             if (_doubleBufferImage != null)
             {
@@ -67,6 +69,7 @@ namespace maze
             for (int i = 0; i < Utils.Size; i++)
                 for (int j = 0; j < Utils.Size; j++) {
                     index = i * Utils.Size + j;
+
                     if (cells[index][0] == '0')
                         g.DrawLine(new Pen(Color.Black, 2.0f), 20 + j * cellSize, 20 + i * cellSize, 20 + j * cellSize, 20 + (i+1) * cellSize);
                     if (cells[index][1] == '0')
@@ -85,6 +88,7 @@ namespace maze
 
                     int y = i / Utils.Size;
                     int x = i - y * Utils.Size;
+                    
            
                     if(_ownerAgent.Weight[i] == 0)
                         g.FillRectangle(new SolidBrush(Color.FromArgb(255 , Color.Red)), 20 + x * cellSize + 6, 20 + y * cellSize + 6, cellSize - 12, cellSize - 12);
@@ -102,6 +106,8 @@ namespace maze
                 }
 
             }
+
+            g.FillRectangle(new SolidBrush(Color.FromArgb(255, Color.Coral)), 20 + ExitX * cellSize + 6, 20 + ExitY * cellSize + 6, cellSize - 12, cellSize - 12);
 
             Graphics pbg = pictureBox.CreateGraphics();
             pbg.DrawImage(_doubleBufferImage, 0, 0);

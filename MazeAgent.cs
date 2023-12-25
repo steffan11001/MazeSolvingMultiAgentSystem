@@ -13,11 +13,13 @@ namespace maze
         private MazeForm _formGui;
         public Dictionary<string, string> ExplorerPositions { get; set; }
         private List<string> cells;
-        private float DecreaseRate = 0.05f;
+        private float DecreaseRate = 0.02f;
         public Dictionary<int,float> Weight;
+        public int ExitPositionX, ExitPositionY;
+
         public MazeAgent()
         {
-            cells = readMazeCells("D:\\SistemeMultiagent\\MazeSolvingMultiAgentSystem\\maze3.txt.txt");
+            cells = readMazeCells("D:\\SistemeMultiagent\\MazeSolvingMultiAgentSystem\\maze4.txt");
             ExplorerPositions = new Dictionary<string, string>();
             Weight = new Dictionary<int, float>();
             int index = 0;
@@ -90,41 +92,64 @@ namespace maze
             string[] param = parameters.Split(' ');
             int x = Convert.ToInt32(param[0]);
             int y = Convert.ToInt32(param[1]);
-            string state = param[2];
 
             int cellPos = y * Utils.Size + x;
 
-            if (state == "block")
-                Weight[cellPos] = 0;
+           
+            if(blockPoint(cells[cellPos]))
+                Weight[cellPos] = Weight[cellPos] - 2*DecreaseRate;
             else
-                if(blockPoint(cells[cellPos]))
-                    Weight[cellPos] = Weight[cellPos] - 2*DecreaseRate;
-                else
-                    Weight[cellPos] = Weight[cellPos] - DecreaseRate;
+                Weight[cellPos] = Weight[cellPos] - DecreaseRate;
 
         }
         private void HandleSpawn(string sender)
         {
-            bool flag = false;
+            bool flag;
             
             while (true)
             {
                 int x = Utils.RandNoGen.Next(Utils.Size);
                 int y = Utils.RandNoGen.Next(Utils.Size);
+                int cellsPos = y * Utils.Size + x;
+                flag = false;
 
                 foreach(string k in ExplorerPositions.Keys)
                 {
                     string[] positions = ExplorerPositions[k].Split(' ');
                     int posX = Convert.ToInt32(positions[0]);
                     int posY = Convert.ToInt32(positions[1]);
+               
                     if (x == posX && y == posY)
                         flag = true;
+                    if (x == posX + 1 && y == posY && cells[cellsPos][1] == '1')
+                        flag = true;
+                    if (x == posX - 1 && y == posY && cells[cellsPos][0] == '1')
+                        flag = true;
+                    if (x == posX && y - 1 == posY && cells[cellsPos][2] == '1')
+                        flag = true;
+                    if (x == posX && y + 1 == posY && cells[cellsPos][3] == '1')
+                        flag = true;
+
                 }
 
                 if (!flag)
                 {
                     ExplorerPositions.Add(sender, string.Format("{0} {1}", x, y));
                     Send(sender, Utils.Str("spawn", x, y));
+
+                    float left = 0, right = 0, top = 0, bottom = 0;
+                    if (cellsPos % Utils.Size != 0)
+                        left = Weight[cellsPos - 1];
+                    if (cellsPos % Utils.Size != Utils.Size - 1)
+                        right = Weight[cellsPos + 1];
+                    if (cellsPos >= Utils.Size)
+                        top = Weight[cellsPos - Utils.Size];
+                    if (cellsPos < Utils.Size * (Utils.Size - 1))
+                        bottom = Weight[cellsPos + Utils.Size];
+
+                    string weights = string.Format("{0} {1} {2} {3}", left, right, top, bottom);
+                    Send(sender, Utils.StrForExplorer("move", cells[cellsPos], weights));
+
                     break;
                 }
             }
@@ -153,7 +178,7 @@ namespace maze
                     continue;
                 if (ExplorerPositions[k] == position)
                 {
-                    Send(k, Utils.Str("back", Weight[cellsPos]));
+                    Send(sender, Utils.Str("back"));
                     return;
                 }
             }
@@ -172,12 +197,23 @@ namespace maze
                 using (StreamReader reader = new StreamReader(filePath))
                 {
                     // Read each line until the end of the file
+                    Utils.Size = Convert.ToInt32(reader.ReadLine());
+
+                    int count = 0;
                     while (!reader.EndOfStream)
                     {
+                        count++;
                         string line = reader.ReadLine();
                         result.Add(line);
-                        // You can store or process each string as needed
+
+                        if (count == Utils.Size * Utils.Size)
+                            break;
                     }
+
+                    string[] ExitPosition = reader.ReadLine().Split(' ');
+                    ExitPositionX = Convert.ToInt32(ExitPosition[0]);
+                    ExitPositionY = Convert.ToInt32(ExitPosition[1]);
+
                 }
             }
             else
