@@ -13,7 +13,7 @@ namespace maze
         private MazeForm _formGui;
         public Dictionary<string, string> ExplorerPositions { get; set; }
         private List<string> cells;
-        private float DecreaseRate = 0.02f;
+        private float DecreaseRate = 0.01f;
         public Dictionary<int,float> Weight;
         public int ExitPositionX, ExitPositionY;
 
@@ -64,6 +64,9 @@ namespace maze
                     break;
                 case "update_weight":
                     UpdateWeight(message.Sender, parameters);
+                    break;
+                case "to_exit":
+                    HandleToExit(message.Sender, parameters);
                     break;
                 default:
                     break;
@@ -154,6 +157,40 @@ namespace maze
                 }
             }
         }
+        private void HandleToExit(string sender, string position)
+        {
+            string[] parameters = position.Split(' ');
+            int x = Convert.ToInt32(parameters[0]);
+            int y = Convert.ToInt32(parameters[1]);
+
+            foreach(string k in ExplorerPositions.Keys)
+            {
+                if (k != sender)
+                {
+                    string[] agent_pos = ExplorerPositions[k].Split(' ');
+                    int agent_x = Convert.ToInt32(agent_pos[0]);
+                    int agent_y = Convert.ToInt32(agent_pos[1]);
+                    if (x == agent_x && y == agent_y)
+                    {
+                        Console.WriteLine(sender + " " + k + " Position " + x + " " + y);
+                        Send(sender, "wait");
+                        return;
+                    }
+                }
+            }
+
+            ExplorerPositions[sender] = position;
+
+            if (x == ExitPositionX && y == ExitPositionY)
+            {
+                Send(sender, "finish");
+                ExplorerPositions.Remove(sender);
+            }
+            else
+            {
+                Send(sender, "move");
+            }
+        }
         private void HandleChange(string sender, string position)
         {
             string[] parameters = position.Split(' ');
@@ -161,14 +198,31 @@ namespace maze
             int y = Convert.ToInt32(parameters[1]);
             int cellsPos = y * Utils.Size + x;
             float left=0, right=0, top=0, bottom=0;
-            if (cellsPos % Utils.Size != 0)
+            if (cellsPos % Utils.Size != 0 && cells[cellsPos][0] != '0')
                 left = Weight[cellsPos-1];
-            if (cellsPos % Utils.Size != Utils.Size - 1)
+            if (cellsPos % Utils.Size != Utils.Size - 1 && cells[cellsPos][1] != '0')
                 right = Weight[cellsPos + 1];
-            if (cellsPos >= Utils.Size)
+            if (cellsPos >= Utils.Size && cells[cellsPos][2] != '0')
                 top = Weight[cellsPos - Utils.Size];
-            if (cellsPos < Utils.Size * (Utils.Size - 1))
+            if (cellsPos < Utils.Size * (Utils.Size - 1) && cells[cellsPos][3] != '0')
                 bottom = Weight[cellsPos + Utils.Size];
+
+            foreach(string k in ExplorerPositions.Keys)
+            {
+                string[] AgentPosition = ExplorerPositions[k].Split(' ');
+                int agent_x = Convert.ToInt32(AgentPosition[0]);
+                int agent_y = Convert.ToInt32(AgentPosition[1]);
+
+                if (agent_x == x - 1 && agent_y == y)
+                   left = 0;
+                else if (agent_x == x + 1 && agent_y == y)
+                   right = 0;
+                else if (agent_x == x && agent_y == y - 1)
+                   top = 0;
+                else if (agent_x == x && agent_y == y + 1)
+                   bottom = 0;
+
+            }
 
             string weights = string.Format("{0} {1} {2} {3}", left, right, top, bottom);
 
@@ -178,14 +232,19 @@ namespace maze
                     continue;
                 if (ExplorerPositions[k] == position)
                 {
-                    Send(sender, Utils.Str("back"));
-                    return;
+                   Send(sender, Utils.Str("back"));
+                        return;
                 }
             }
 
             ExplorerPositions[sender] = position;
-
-            Send(sender, Utils.StrForExplorer("move", cells[cellsPos], weights));
+            if (x == ExitPositionX && y == ExitPositionY)
+            {
+                Send(sender, "finish");
+                ExplorerPositions.Remove(sender);
+            }
+            else
+                Send(sender, Utils.StrForExplorer("move", cells[cellsPos], weights));
         }
 
         private List<string> readMazeCells(string filePath)

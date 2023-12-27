@@ -12,7 +12,7 @@ namespace maze
             var mazeAgent = new MazeAgent();
             env.Add(mazeAgent, "maze");
 
-            for (int i = 1; i <=10; i++)
+            for (int i = 1; i <=20; i++)
             {
                 var explorerAgent = new ExplorerAgent();
                 env.Add(explorerAgent, "explorer" + i);
