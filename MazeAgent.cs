@@ -13,7 +13,7 @@ namespace maze
         private MazeForm _formGui;
         public Dictionary<string, string> ExplorerPositions { get; set; }
         private List<string> cells;
-        private float DecreaseRate = 0.01f;
+        private float DecreaseRate = 0.005f;
         public Dictionary<int,float> Weight;
         public int ExitPositionX, ExitPositionY;
 
@@ -44,8 +44,6 @@ namespace maze
         public override void Setup()
         {
             Console.WriteLine("Starting " + Name);
-
-            string compPos = Utils.Str(Utils.Size / 2, Utils.Size / 2);
         }
 
         public override void Act(Message message)
@@ -72,6 +70,41 @@ namespace maze
                     break;
             }
             _formGui.UpdateMazeGUI();
+        }
+
+        private void HandleToExit(string sender, string position)
+        {
+            string[] parameters = position.Split(' ');
+            int x = Convert.ToInt32(parameters[0]);
+            int y = Convert.ToInt32(parameters[1]);
+
+            foreach (string k in ExplorerPositions.Keys)
+            {
+                if (k != sender)
+                {
+                    string[] agent_pos = ExplorerPositions[k].Split(' ');
+                    int agent_x = Convert.ToInt32(agent_pos[0]);
+                    int agent_y = Convert.ToInt32(agent_pos[1]);
+                    if (x == agent_x && y == agent_y)
+                    {
+                        Console.WriteLine(sender + " " + k + " Position " + x + " " + y);
+                        Send(sender, "wait");
+                        return;
+                    }
+                }
+            }
+
+            ExplorerPositions[sender] = position;
+
+            if (x == ExitPositionX && y == ExitPositionY)
+            {
+                Send(sender, "finish");
+                ExplorerPositions.Remove(sender);
+            }
+            else
+            {
+                Send(sender, "move");
+            }
         }
 
         private bool blockPoint(string cell)
@@ -124,16 +157,10 @@ namespace maze
                
                     if (x == posX && y == posY)
                         flag = true;
-                    if (x == posX + 1 && y == posY && cells[cellsPos][1] == '1')
-                        flag = true;
-                    if (x == posX - 1 && y == posY && cells[cellsPos][0] == '1')
-                        flag = true;
-                    if (x == posX && y - 1 == posY && cells[cellsPos][2] == '1')
-                        flag = true;
-                    if (x == posX && y + 1 == posY && cells[cellsPos][3] == '1')
-                        flag = true;
-
                 }
+
+                if (x == ExitPositionX && y == ExitPositionY)
+                    flag = true;
 
                 if (!flag)
                 {
@@ -141,13 +168,13 @@ namespace maze
                     Send(sender, Utils.Str("spawn", x, y));
 
                     float left = 0, right = 0, top = 0, bottom = 0;
-                    if (cellsPos % Utils.Size != 0)
+                    if (cellsPos % Utils.Size != 0 && cells[cellsPos][0] != '0')
                         left = Weight[cellsPos - 1];
-                    if (cellsPos % Utils.Size != Utils.Size - 1)
+                    if (cellsPos % Utils.Size != Utils.Size - 1 && cells[cellsPos][1] != '0')
                         right = Weight[cellsPos + 1];
-                    if (cellsPos >= Utils.Size)
+                    if (cellsPos >= Utils.Size && cells[cellsPos][2] != '0')
                         top = Weight[cellsPos - Utils.Size];
-                    if (cellsPos < Utils.Size * (Utils.Size - 1))
+                    if (cellsPos < Utils.Size * (Utils.Size - 1) && cells[cellsPos][3] != '0')
                         bottom = Weight[cellsPos + Utils.Size];
 
                     string weights = string.Format("{0} {1} {2} {3}", left, right, top, bottom);
@@ -157,55 +184,61 @@ namespace maze
                 }
             }
         }
-        private void HandleToExit(string sender, string position)
+        private void HandleChangeBlock(string sender, int current_x, int current_y)
         {
-            string[] parameters = position.Split(' ');
-            int x = Convert.ToInt32(parameters[0]);
-            int y = Convert.ToInt32(parameters[1]);
+            float left = 0, right = 0, top = 0, bottom = 0;
+            int currentCellPos = current_y * Utils.Size + current_x;
 
-            foreach(string k in ExplorerPositions.Keys)
+            if (currentCellPos % Utils.Size != 0 && cells[currentCellPos][0] != '0')
+                left = Weight[currentCellPos - 1];
+            if (currentCellPos % Utils.Size != Utils.Size - 1 && cells[currentCellPos][1] != '0')
+                right = Weight[currentCellPos + 1];
+            if (currentCellPos >= Utils.Size && cells[currentCellPos][2] != '0')
+                top = Weight[currentCellPos - Utils.Size];
+            if (currentCellPos < Utils.Size * (Utils.Size - 1) && cells[currentCellPos][3] != '0')
+                bottom = Weight[currentCellPos + Utils.Size];
+
+            foreach (string k in ExplorerPositions.Keys)
             {
-                if (k != sender)
-                {
-                    string[] agent_pos = ExplorerPositions[k].Split(' ');
-                    int agent_x = Convert.ToInt32(agent_pos[0]);
-                    int agent_y = Convert.ToInt32(agent_pos[1]);
-                    if (x == agent_x && y == agent_y)
-                    {
-                        Console.WriteLine(sender + " " + k + " Position " + x + " " + y);
-                        Send(sender, "wait");
-                        return;
-                    }
-                }
+                string[] AgentPosition = ExplorerPositions[k].Split(' ');
+                int agent_x = Convert.ToInt32(AgentPosition[0]);
+                int agent_y = Convert.ToInt32(AgentPosition[1]);
+
+                if (agent_x == current_x - 1 && agent_y == current_y)
+                    left = 0;
+                else if (agent_x == current_x + 1 && agent_y == current_y)
+                    right = 0;
+                else if (agent_x == current_x && agent_y == current_y - 1)
+                    top = 0;
+                else if (agent_x == current_x && agent_y == current_y + 1)
+                    bottom = 0;
+
             }
 
-            ExplorerPositions[sender] = position;
+            string weights = string.Format("{0} {1} {2} {3}", left, right, top, bottom);
 
-            if (x == ExitPositionX && y == ExitPositionY)
-            {
-                Send(sender, "finish");
-                ExplorerPositions.Remove(sender);
-            }
-            else
-            {
-                Send(sender, "move");
-            }
+            Send(sender, Utils.StrForExplorer("block", cells[currentCellPos], weights));
         }
         private void HandleChange(string sender, string position)
         {
             string[] parameters = position.Split(' ');
+            string strPosition = parameters[0] + " " + parameters[1];
             int x = Convert.ToInt32(parameters[0]);
             int y = Convert.ToInt32(parameters[1]);
-            int cellsPos = y * Utils.Size + x;
+            int current_x = Convert.ToInt32(parameters[2]);
+            int current_y = Convert.ToInt32(parameters[3]);
+
+            int cellPos = y * Utils.Size + x;
+           
             float left=0, right=0, top=0, bottom=0;
-            if (cellsPos % Utils.Size != 0 && cells[cellsPos][0] != '0')
-                left = Weight[cellsPos-1];
-            if (cellsPos % Utils.Size != Utils.Size - 1 && cells[cellsPos][1] != '0')
-                right = Weight[cellsPos + 1];
-            if (cellsPos >= Utils.Size && cells[cellsPos][2] != '0')
-                top = Weight[cellsPos - Utils.Size];
-            if (cellsPos < Utils.Size * (Utils.Size - 1) && cells[cellsPos][3] != '0')
-                bottom = Weight[cellsPos + Utils.Size];
+            if (cellPos % Utils.Size != 0 && cells[cellPos][0] != '0')
+                left = Weight[cellPos-1];
+            if (cellPos % Utils.Size != Utils.Size - 1 && cells[cellPos][1] != '0')
+                right = Weight[cellPos + 1];
+            if (cellPos >= Utils.Size && cells[cellPos][2] != '0')
+                top = Weight[cellPos - Utils.Size];
+            if (cellPos < Utils.Size * (Utils.Size - 1) && cells[cellPos][3] != '0')
+                bottom = Weight[cellPos + Utils.Size];
 
             foreach(string k in ExplorerPositions.Keys)
             {
@@ -230,21 +263,22 @@ namespace maze
             {
                 if (k == sender)
                     continue;
-                if (ExplorerPositions[k] == position)
+                if (ExplorerPositions[k] == strPosition)
                 {
-                   Send(sender, Utils.Str("back"));
+
+                    HandleChangeBlock(sender, current_x, current_y);
                         return;
                 }
             }
 
-            ExplorerPositions[sender] = position;
+            ExplorerPositions[sender] = strPosition;
             if (x == ExitPositionX && y == ExitPositionY)
             {
                 Send(sender, "finish");
                 ExplorerPositions.Remove(sender);
             }
             else
-                Send(sender, Utils.StrForExplorer("move", cells[cellsPos], weights));
+                Send(sender, Utils.StrForExplorer("move", cells[cellPos], weights));
         }
 
         private List<string> readMazeCells(string filePath)

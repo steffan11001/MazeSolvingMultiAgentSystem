@@ -13,7 +13,7 @@ namespace maze
         private Dictionary<int, string> Path;
         private List<List<string>> ExitPath;
         private List<string> Exit;
-        private byte _last_direction, _direction;
+        private byte _last_direction=255, _direction=255;
         private byte[] OppositeDirection = { 1, 0, 3, 2};
         private double[] arrayWeight = new double[4];
         private int[] arrayWalls = new int[4];
@@ -43,24 +43,33 @@ namespace maze
             string action;
             List<string> parameters;
             Utils.ParseMessage(message.Content, out action, out parameters);
-            if (action == "back")
+            if (action == "block")
             {
-                GoBack();
+                _direction = _last_direction;
+                _x = _previous_x;
+                _y = _previous_y;
+                Move(parameters);
             }
             if (action == "move")
             {
                 if (SearchingState)
                 {
-                    Send("maze", Utils.Str("update_weight", _previous_x, _previous_y));
-                    maze[_y, _x] = true;
+                    if (_previous_x != _x || _previous_y != _y)
+                    {
+                        Send("maze", Utils.Str("update_weight", _previous_x, _previous_y));
+                        AddInPath(_previous_x + "_" + _previous_y);
+                    }
+                    maze[_previous_y, _previous_x] = true;
                     Move(parameters);
                 }
                 else
                 {
-                    int position_in_path = inPath(_x+"_"+_y);
-                    AddInPath(_x + "_" +_y, position_in_path);
-                    Send("maze", Utils.Str("update_weight", _previous_x, _previous_y));
-                    maze[_y, _x] = true;
+                    if (_previous_x != _x || _previous_y != _y)
+                    {
+                        AddInPath(_previous_x + "_" + _previous_y);
+                        Send("maze", Utils.Str("update_weight", _previous_x, _previous_y));
+                    }
+                    maze[_previous_y, _previous_x] = true;
                     ToExitPoint();
                 }
             }
@@ -74,14 +83,40 @@ namespace maze
             {
                 _x = Convert.ToInt32(parameters[0]);
                 _y = Convert.ToInt32(parameters[1]);
+                _previous_x = _x;
+                _previous_y = _y;
             }
+            
+            if(action == "path")
+            {
+                bool intersection = false;
+                List<string> ReceivedPath = new List<string>();
+                for (int i = 0; i < parameters.Count; i++)
+                {
+                    ReceivedPath.Add(parameters[i]);
+                }
+                for(int i=0; i<ExitPath.Count; i++)
+                {
+                    List<string> TempPath = ExitPath[i];
+                    for (int j = 0; j < TempPath.Count - 1; j++)
+                        for (int k = ReceivedPath.Count - 1; k > 0; k--)
+                            if (TempPath[j] == ReceivedPath[k] && TempPath[j + 1] == ReceivedPath[k - 1])
+                                intersection = true;
+                }
+
+                if(intersection == false)
+                    ExitPath.Add(ReceivedPath);
+
+                //Console.WriteLine(Name + ":" + intersection);
+
+            }
+
             if(action == "finish")
             {
-                int position_in_path = inPath(_x + "_" + _y);
-                AddInPath(_x + "_" + _y, position_in_path);
-                Console.WriteLine(Name + ":");
+                AddInPath(_previous_x + "_" + _previous_y);
+                AddInPath(_x + "_" + _y);
                 string line = "";
-                for(int i = 0; i < step; i++)
+                for (int i = 0; i < step; i++)
                 {
                     if (i == 0)
                         line = Path[i];
@@ -89,28 +124,14 @@ namespace maze
                         line = line + " " + Path[i];
                 }
                 Broadcast(Utils.Str("path", line));
-            }
-            if(action == "path")
-            {
-                List<string> ReceivedPath = new List<string>();
-                for (int i = 0; i < parameters.Count; i++)
-                {
-                    ReceivedPath.Add(parameters[i]);
-                }
-                ExitPath.Add(ReceivedPath);
-
-                Console.Write(Name + ": ");
-                for (int i = 0; i < step; i++)
-                {
-                    Console.Write(Path[i]+" ");
-                }
-                Console.WriteLine();
+              
             }
 
         }
+
         private void ToExitPoint()
         {
-  
+
             int direction = -1;
             string position = _x + "_" + _y;
             _previous_x = _x;
@@ -118,7 +139,7 @@ namespace maze
 
             Console.WriteLine(Name + " Position " + _x + " " + _y);
             Console.Write(Name + ": ");
-            for(int i = 0; i < Exit.Count; i++)
+            for (int i = 0; i < Exit.Count; i++)
             {
                 Console.Write(Exit[i] + " ");
             }
@@ -126,13 +147,13 @@ namespace maze
 
 
 
-            for (int i=0; i<Exit.Count-1; i++)
-                if(Exit[i] == position)
+            for (int i = 0; i < Exit.Count - 1; i++)
+                if (Exit[i] == position)
                 {
                     string[] pos = Exit[i + 1].Split('_');
                     int x = Convert.ToInt32(pos[0]);
                     int y = Convert.ToInt32(pos[1]);
-                    Console.WriteLine(Name + " Position " + _x + " " + _y + " "+x+" "+y);
+                    Console.WriteLine(Name + " Position " + _x + " " + _y + " " + x + " " + y);
                     if (_x == x + 1)
                         direction = 0;
                     if (_x == x - 1)
@@ -155,126 +176,81 @@ namespace maze
 
 
         }
-        private void GoBack()
-        {
-            if (step == 0 || step == 1)
-            {
-                List<string> Neighbours = getNeightbours();
-                for(int i = 0; i < Neighbours.Count; i++)
-                {
-                    if (Neighbours[i] != "") {
-                        string[] position = Neighbours[i].Split(' ');
-                        int x = Convert.ToInt32(position[0]);
-                        int y = Convert.ToInt32(position[1]);
-                        if(x != _x && y != _y)
-                        {
-                            _x = x;
-                            _y = y;
-                            break;
-                        }
-                    }
-                }
-                Send("maze", Utils.Str("change", _x, _y));
 
-            }
+        private List<string> getUnexploredNeighbours(double [] weights)
+        {
+            List<string> unexplored = new List<string>();
+            if (_x - 1 >= 0 && maze[_y, _x-1] == false && weights[0] > 0)
+                unexplored.Add((_x - 1) + "_" + _y);
             else
-            {
-                string[] position = Path[step - 2].Split('_');
-                step = step - 2;
-                _previous_x = _x;
-                _previous_y = _y;
-                _direction = OppositeDirection[_last_direction];
-                _x = Convert.ToInt32(position[0]);
-                _y = Convert.ToInt32(position[1]);
-                Send("maze", Utils.Str("change", _x, _y));
-            }
+                unexplored.Add("");
+
+            if (_x + 1 < Utils.Size && maze[_y, _x+1] == false && weights[1] > 0)
+                unexplored.Add((_x + 1) + "_" + _y);
+            else
+                unexplored.Add("");
+
+            if (_y - 1 >= 0 && maze[_y - 1,_x] == false && weights[2] > 0)
+                unexplored.Add(_x + "_" + (_y - 1));
+            else
+                unexplored.Add("");
+
+            if (_y + 1 < Utils.Size && maze[_y + 1,_x] == false && weights[3] > 0)
+                unexplored.Add(_x + "_" + (_y + 1));
+            else
+                unexplored.Add("");
+
+            return unexplored;
+            
         }
-        private List<string> getNeightbours()
+        private void AddInPath(string position)
         {
-            List<string> Neighbours=new List<string>();
-            for (int i = 0; i < 4; i++)
+            for(int i=0; i < Path.Count; i++)
             {
-                Neighbours.Add("");
-            }
-
-            if (arrayWalls[0] == 1 && arrayWeight[0] != 0)
-                Neighbours[0] = Convert.ToString((_x - 1) + " " + _y);
-            if (arrayWalls[1] == 1 && arrayWeight[1] != 0)
-                Neighbours[1] = Convert.ToString((_x + 1) + " " + _y);
-            if (arrayWalls[2] == 1 && arrayWeight[2] != 0)
-                Neighbours[2] = Convert.ToString(_x + " " + (_y-1));
-            if (arrayWalls[3] == 1 && arrayWeight[3] != 0)
-                Neighbours[3] = Convert.ToString(_x + " " + (_y+1));
-
-            return Neighbours;
-        }
-        private bool visitedAllNeighbours(List<string> Neighbours)
-        {
-            bool flag = true;
-            int x, y;
-
-            for(int i = 0; i < Neighbours.Count; i++)
-            {
-                if (Neighbours[i] != "")
+                if (Path[i] == position)
                 {
-                    string[] position = Neighbours[i].Split(' ');
-                    x = Convert.ToInt32(position[0]);
-                    y = Convert.ToInt32(position[1]);
-                    if (maze[y, x] == false && arrayWeight[i] != 0)
-                        flag = false;
+                    step = i+1;
+                    return;
                 }
             }
 
-            return flag;
-        }
+            if (step == Path.Count)
+                Path.Add(step, position);
+            else
+                Path[step] = position;
+            
+            step++;
 
-        private List<string> getUnvisitedNeighbours()
+        }
+       
+        private int getDirection(double [] weights)
         {
-            List<string> Neighbours = new List<string>();
-            for (int i = 0; i < 4; i++){
-                Neighbours.Add("");
+            List<string> unexplored = getUnexploredNeighbours(weights);
+            int direction = -1;
+
+            for (int i = 0; i < 4; i++)
+                if (unexplored[i] != "")
+                {
+                    direction = i;
+                    return direction;
+                }
+
+            double max = 0;
+
+            for(int i=0; i < weights.Length; i++)
+            {
+                if (weights[i] > max && i != OppositeDirection[_last_direction])
+                {
+                    max = weights[i];
+                    direction = i;
+                }
             }
 
-            if (arrayWalls[0] == 1 && maze[_y, _x - 1] == false && arrayWeight[0] != 0)
-                Neighbours[0] = Convert.ToString((_x - 1) + " " + _y);
-            if (arrayWalls[1] == 1 && maze[_y, _x + 1] == false && arrayWeight[1] != 0)
-                Neighbours[1] = Convert.ToString((_x + 1) + " " + _y);
-            if (arrayWalls[2] == 1 && maze[_y - 1, _x] == false && arrayWeight[2] != 0)
-                Neighbours[2] = Convert.ToString(_x + " " + (_y - 1));
-            if (arrayWalls[3] == 1 && maze[_y + 1, _x] == false && arrayWeight[3] != 0)
-                Neighbours[3] = Convert.ToString(_x + " " + (_y + 1));
+            if (direction == -1 && _last_direction != 255 && weights[OppositeDirection[_last_direction]] > 0)
+                direction = OppositeDirection[_last_direction];
 
-            return Neighbours;
-        }
-        private int getNeighboursCount(List<string> Neighbours)
-        {
-            int count = 0;
-            for (int i = 0; i < Neighbours.Count; i++)
-                if (Neighbours[i] != "")
-                    count = count + 1;
+            return direction;
 
-            return count;
-        }
-        private int inPath(string position)
-        {
-            int index = -1;
-
-            foreach (int i in Path.Keys)
-                if (Path[i] == position)
-                    index = i;
-
-            return index;
-        }
-        private bool searchInExitPath()
-        {
-            bool flag = false;
-
-            for(int k = step-1; k >= 0; k--)
-                for(int i=0;i<ExitPath.Count; i++)
-                    for(int j=0; j<ExitPath[i].Count; j++)
-                        if(ExitPath[i][j] == Path[k]){  flag = true; break;  }
-            
-            return flag;
         }
         private List<string> buildingPathToExit()
         {
@@ -296,7 +272,8 @@ namespace maze
                 ToExit.Add(ExitPath[temp_i][j]);
             }
             int index = 0;
-            while (index<ToExit.Count-1) {
+            while (index < ToExit.Count - 1)
+            {
                 if (ToExit[index] == ToExit[index + 1])
                     ToExit.RemoveAt(index);
                 else
@@ -305,59 +282,34 @@ namespace maze
 
             return ToExit;
         }
-        private int max(List<string> Neighbours)
+
+        private bool IsExit()
         {
-            int index = -1;
-            double max = 0;
 
-            if (getNeighboursCount(Neighbours) == 1)
-            {
-                for (int i = 0; i < Neighbours.Count; i++)
-                    if (Neighbours[i] != "")
-                        index = i;
-            }
-            else
-            {
-                for (int i = 0; i < Neighbours.Count; i++)
-                {
-                    if (max < arrayWeight[i] && Neighbours[i] != "" && i != OppositeDirection[_last_direction])
-                    {
-                        max = arrayWeight[i];
-                        index = i;
-                    }
-                }
-            }
+            for (int k = 0; k < step; k++)
+                for (int i = 0; i < ExitPath.Count; i++)
+                    for (int j = 0; j < ExitPath[i].Count; j++)
+                        if (ExitPath[i][j] == Path[k])
+                        {
+                            return false;
+                        }
 
-            return index;
+            return true;
         }
-        private void AddInPath(string position, int position_in_path)
-        {
-            if (position_in_path != -1)
-            {
-                step = position_in_path;
-                Path[step] = position;
-            }
-            else if (step < Path.Count)
-                Path[step] = position;
-            else
-                Path.Add(step, position);
-
-            step++;
-        }
+       
+       
         private void Move(List<String> parameters)
         {
             string position = _x + "_" + _y;
-            int position_in_path = inPath(position);
-            AddInPath(position, position_in_path);
-            SearchingState = searchInExitPath() ? false : true;
+            
+            _previous_x = _x;
+            _previous_y = _y;
+            _last_direction = _direction;
+
+            SearchingState = IsExit();
 
             if (SearchingState)
             {
-
-                _previous_x = _x;
-                _previous_y = _y;
-                _last_direction = _direction;
-
                 int left = Convert.ToInt32(parameters[0]);
                 int right = Convert.ToInt32(parameters[1]);
                 int top = Convert.ToInt32(parameters[2]);
@@ -371,41 +323,42 @@ namespace maze
                 arrayWeight[0] = leftWeight; arrayWeight[1] = rightWeight; arrayWeight[2] = topWeight; arrayWeight[3] = bottomWeight;
                 arrayWalls[0] = left; arrayWalls[1] = right; arrayWalls[2] = top; arrayWalls[3] = bottom;
 
-                List<string> Neighbours = getNeightbours();
-                List<string> UnvisitedNeighbours;
-
-                if (!visitedAllNeighbours(Neighbours))
-                {
-                    UnvisitedNeighbours = getUnvisitedNeighbours();
-                    index = max(UnvisitedNeighbours);
-                }
-                else
-                {
-                    index = max(Neighbours);
-                }
+                index = getDirection(arrayWeight);
 
                 switch (index)
                 {
-                    case 0: if (_x > 0 && left == 1) _x--; _my_weight = leftWeight; _direction = 0; break;
-                    case 1: if (_x < Utils.Size - 1 && right == 1) _x++; _my_weight = rightWeight; _direction = 1; break;
-                    case 2: if (_y > 0 && top == 1) _y--; _my_weight = topWeight; _direction = 2; break;
-                    case 3: if (_y < Utils.Size - 1 && bottom == 1) _y++; _my_weight = bottomWeight; _direction = 3; break;
+                    case 0: if (_x > 0 && left == 1) _x--; _direction = 0; break;
+                    case 1: if (_x < Utils.Size - 1 && right == 1) _x++; _direction = 1; break;
+                    case 2: if (_y > 0 && top == 1) _y--; _direction = 2; break;
+                    case 3: if (_y < Utils.Size - 1 && bottom == 1) _y++; _direction = 3; break;
                 }
 
-                Send("maze", Utils.Str("change", _x, _y));
+                Send("maze", Utils.Str("change", _x, _y, _previous_x, _previous_y));
             }
             else
             {
+
                 Exit = buildingPathToExit();
+                Console.Write(Name);
+                for(int i = 0; i<Exit.Count; i++)
+                {
+                    Console.Write(" " + Exit[i]);
+                }
+                
+                Console.WriteLine();
+
+                bool fl = false;
+                for(int i=0; i < Exit.Count; i++)
+                {
+                    if (Exit[i] == (_x + "_" + _y))
+                        fl = true;
+                }
+                if(fl == false)
+                    Exit.Insert(0, _x + "_" + _y);
 
                 ToExitPoint();
-                //Console.Write(Name + ": ");
-                //for(int i = 0; i < Exit.Count; i++)
-                //{
-                //    Console.Write(Exit[i] + " ");
-                //}
-                //Console.WriteLine();
             }
+            
         }
 
     }

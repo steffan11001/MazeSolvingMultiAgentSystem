@@ -6,7 +6,7 @@ namespace maze
     public class Utils
     {
         public static int Size;
-        public static int NoExplorers = 5;
+        public static int NoExplorers = 40;
 
         public static int Delay = 100;
         public static Random RandNoGen = new Random();
@@ -46,6 +46,11 @@ namespace maze
         public static string Str(object p1, object p2, object p3)
         {
             return string.Format("{0} {1} {2}", p1, p2, p3);
+        }
+
+        public static string Str(object p1, object p2, object p3, object p4, object p5)
+        {
+            return string.Format("{0} {1} {2} {3} {4}", p1, p2, p3, p4, p5);
         }
         public static string StrForExplorer(object p1, object cellsObj, object weightsObj)
         {
